@@ -62,7 +62,7 @@ int main(uint64_t stackbase) {
     uint64_t argc = *(uint64_t*)stackbase;
     uint64_t envc = *(uint64_t*)(stackbase + 8 + argc * 8);
 
-    uint64_t module = *(uint64_t*)(stackbase + 8 + argc * 8 + 8 + envc * 8 + 14*8);
+    uint64_t module = *(uint64_t*)(stackbase + 8 + argc * 8 + 8 + envc * 8 + 14*8); //this points to the data section of the module
 
     printf("argc = %d \n", argc);
 

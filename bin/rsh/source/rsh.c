@@ -37,17 +37,14 @@
 #include <ps4/util.h>
 #include <ps4/error.h>
 
-void syscall2(uint64_t i_rdi, ...) {
-   __asm__(
-   "push %%r11\n\
-   mov $0x93a4FFFF8, %%r11\n\
-   mov (%%r11), %%r11\n\
-   mov %0, %%rdi;\n\
-   mov $0, %%rax;\n\
-   call *%%r11\n\
-   pop %%r11" : : "r" (i_rdi)
-   );
-}
+void syscall2(uint64_t i_rdi, ...);
+
+__asm__("syscall2: push %r11\n\
+   mov $0x93a4FFFF8, %r11\n\
+   mov (%r11), %r11\n\
+   mov $0, %rax;\n\
+   call *%r11\n\
+   pop %r11\n ret");
 
 int main(uint64_t stackbase) {
     //syscall2(4, 1, "hi_there", 8);

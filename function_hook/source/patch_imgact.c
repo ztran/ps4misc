@@ -143,14 +143,14 @@ int hihack_exec(struct image_params *imgp) {
 
     //should unmount my own file ?
     NDINIT(&nd, LOOKUP, ISOPEN | LOCKLEAF | FOLLOW | SAVENAME
-        | MPSAFE | AUDITVNODE1, UIO_SYSSPACE, args.fname, td);
+        | AUDITVNODE1, UIO_SYSSPACE, args.fname, td); // MPSAFE |
 
     error = namei(&nd);
     ps4KernelSocketPrint(td, patch_another_sock, "namei returned: %d\n", error);
     if (error)
         goto exec_fail;
 
-    vfslocked = NDHASGIANT(&nd);
+    vfslocked = NDHASGIANT(&nd); //nope shouldnt without mpsafe
     binvp  = nd.ni_vp;
     imgp->vp = binvp;
 
@@ -319,6 +319,12 @@ hihack_proc(struct image_params *imgp, char * filename, uint64_t * outprocentry)
                 phdr[i].p_memsz, phdr[i].p_filesz, prot);
 
         if ((phdr[i].p_memsz != 0) & (phdr[i].p_type == PT_LOAD)) {
+            if (phdr[i].p_vaddr == 0)
+            {
+                ps4KernelSocketPrint(td, patch_another_sock, "base was 0, relocating\n");
+                rbase += 0x40000;
+            }
+
             /* Loadable segment */
             prot = __elfN(trans_prot)(phdr[i].p_flags);
 
@@ -423,9 +429,6 @@ exec_fail:
 }
 
 int justanother_imgact(struct image_params *imgp) {
-    int (*vm_map_insert)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
-              vm_offset_t start, vm_offset_t end, vm_prot_t prot, vm_prot_t max,
-              int cow) = 0xFFFFFFFF825AD410;
 
 
     struct thread *td;
@@ -458,7 +461,7 @@ int justanother_imgact(struct image_params *imgp) {
 
     ps4KernelSocketPrint(td, patch_another_sock, "header %llx\n", *(uint64_t *)(imgp->image_header + 0));
 
-    if (*(uint8_t *)(imgp->image_header + 0) != 0x78) 
+    if (*(uint8_t *)(imgp->image_header + 0) != 0x78)
     {
         ps4KernelSocketPrint(td, patch_another_sock, "forwarding to exec_self_imgact\n");
         int (*exec_self_imgact)(struct image_params *imgp) = 0xffffffff82649940;

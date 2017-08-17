@@ -203,7 +203,7 @@ uint64_t hook_exec_set_regs(struct thread *td, struct image_params *imgp, uint64
 
 		uint64_t new_entry = 0;
 
-        hihack_proc(imgp, "/mnt/usb0/app0/CUSA00265.bin", &new_entry);
+        hihack_proc(imgp, "/data/eboot_plugin", &new_entry);
         if (new_entry != 0)
         {
 
@@ -423,6 +423,7 @@ int main(int argc, char **argv)
 
 
 	//need a customsyscall to write mem
+    //syscall 71
 	*(uint64_t*)(0xffffffff8322e9f0) = 5;
 	*(uint64_t*)(0xffffffff8322e9f8) = custom_sycall_map_file;
 	*(uint64_t*)(0xffffffff8322e918) = 0x100000001;

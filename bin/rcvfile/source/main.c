@@ -41,44 +41,6 @@
 #include <ps4/util.h>
 #include <ps4/error.h>
 
-#define IP(a, b, c, d) (((a) << 0) + ((b) << 8) + ((c) << 16) + ((d) << 24))
-
-#define TRUE 1
-#define FALSE 0
-
-int mysocket;
-
-int sockconnect() {
-    
-    char * buffer = "NULL";
-
-    int port = 9000;
-
-    struct sockaddr_in address;
-
-    int cres;
-
-    memset(&address, 0, sizeof(address));
-    address.sin_len = sizeof(address);
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = IP(192, 168, 2, 31);
-    address.sin_port = htons(port);
-
-    mysocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if(mysocket < 0)
-    {
-        printf("socket -1\n");
-        return -1;
-    }
-
-    cres = connect(mysocket, (struct sockaddr *)&address, sizeof(address));
-    printf("connection result %d\n", cres);
-    if (cres != 0) {
-        return -1;
-    }
-
-    return 0;
-}
 
 int main(int argc, char **argv)
 {

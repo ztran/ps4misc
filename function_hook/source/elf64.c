@@ -1,3 +1,7 @@
+#define PAGE_SIZE 0x4000
+#define PAGE_MASK   (PAGE_SIZE - 1)
+#define trunc_page(x)   ((unsigned long)(x) & ~(PAGE_MASK))
+
 #define __ELF_WORD_SIZE 64
 #define __BSD_VISIBLE 1
 #define _KERNEL
@@ -101,12 +105,19 @@ struct vattr {
         long            va_spare;       /* remain quad aligned */
 };
 
+#define PAGE_SIZE 0x4000
+#define PAGE_MASK   (PAGE_SIZE - 1)
+#define trunc_page(x)   ((unsigned long)(x) & ~(PAGE_MASK))
+
 #define trunc_page_ps(va, ps)   ((va) & ~(ps - 1))
 #define round_page_ps(va, ps)   (((va) + (ps - 1)) & ~(ps - 1))
 #define aligned(a, t)   (trunc_page_ps((u_long)(a), sizeof(t)) == (u_long)(a))
 
 vm_prot_t __elfN(trans_prot)(Elf_Word flags);
 Elf_Word __elfN(untrans_prot)(vm_prot_t prot);
+
+//without this definition, its making the return 32 bits
+uint64_t (*vm_imgact_map_page)(uint64_t a1, uint64_t a2) = 0xffffffff825a98a0; // FIXME 1.76 
 
 int
 __elfN(map_partial)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
@@ -133,7 +144,10 @@ __elfN(map_partial)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
     if (object) {
         sf = vm_imgact_map_page(object, offset);
         if (sf == NULL)
+        {
+            ps4KernelSocketPrint(td, patch_another_sock, "[ERROR] trying to copy \n { off: %llx start: %llx end: %llx}\n", off, start, end - start);
             return (KERN_FAILURE);
+        }
         off = offset - trunc_page(offset);
 
         ps4KernelSocketPrint(td, patch_another_sock, "[INFO] trying to copy \n { off: %llx start: %llx end: %llx}\n", off, start, end - start);
@@ -222,6 +236,7 @@ __elfN(map_insert)(vm_map_t map, vm_object_t object, vm_ooffset_t offset,
     }
 }
 
+//#define sf_buf_kva(a) ([*(uint64_t *)(a + 0x40)] | 0xfffffe0000000000)
 
 int
 __elfN(load_section)(struct vmspace *vmspace,
@@ -229,6 +244,9 @@ __elfN(load_section)(struct vmspace *vmspace,
     caddr_t vmaddr, size_t memsz, size_t filsz, vm_prot_t prot,
     size_t pagesize)
 {
+    struct thread *td;
+    ps4KernelThreadGetCurrent(&td);
+
     struct sf_buf *sf;
     size_t map_len;
     vm_offset_t map_addr;
@@ -266,6 +284,8 @@ __elfN(load_section)(struct vmspace *vmspace,
     else
         map_len = round_page_ps(offset + filsz, pagesize) - file_addr;
 
+    ps4KernelSocketPrint(td, patch_another_sock, "[INFO] first map len: %llx\n", map_len);
+
     if (map_len != 0) {
         /* cow flags: don't dump readonly sections in core */
         cow = MAP_COPY_ON_WRITE | MAP_PREFAULT |
@@ -287,7 +307,6 @@ __elfN(load_section)(struct vmspace *vmspace,
         }
     }
 
-
     /*
      * We have to get the remaining bit of the file into the first part
      * of the oversized map segment.  This is normally because the .data
@@ -295,9 +314,11 @@ __elfN(load_section)(struct vmspace *vmspace,
      * to try and save a page, but it's a pain in the behind to implement.
      */
     copy_len = (offset + filsz) - trunc_page_ps(offset + filsz, pagesize);
+
     map_addr = trunc_page_ps((vm_offset_t)vmaddr + filsz, pagesize);
-    map_len = round_page_ps((vm_offset_t)vmaddr + memsz, pagesize) -
-        map_addr;
+    map_len = round_page_ps((vm_offset_t)vmaddr + memsz, pagesize) - map_addr;
+
+    ps4KernelSocketPrint(td, patch_another_sock, "[INFO] mapping anonymous page copy_len: %llx madrr: %llx maplen: %llx\n", copy_len, map_addr, map_len);
 
     /* This had damn well better be true! */
     if (map_len != 0) {
@@ -308,23 +329,40 @@ __elfN(load_section)(struct vmspace *vmspace,
         }
     }
 
+    ps4KernelSocketPrint(td, patch_another_sock, "[INFO] mapped\n");
+
     if (copy_len != 0) {
         vm_offset_t off;
 
-        sf = vm_imgact_map_page(object, offset + filsz);
+        sf = vm_imgact_map_page(object, (offset + filsz - 1)); //in case the (offset + filesz) % PAGESIZE = 0
         if (sf == NULL)
             return (EIO);
+
+        ps4KernelSocketPrint(td, patch_another_sock, "[INFO] vm_imgact_map_page %llx\n", sf);
+        ps4KernelSocketPrintHexDump(td, patch_another_sock, sf_buf_kva(sf), 0x20);
 
         /* send the page fragment to user space */
         off = trunc_page_ps(offset + filsz, pagesize) -
             trunc_page(offset + filsz);
+
+        ps4KernelSocketPrint(td, patch_another_sock, "[INFO] off = %llx - %llx\n", 
+            trunc_page_ps(offset + filsz, pagesize),
+            trunc_page(offset + filsz));
+
+        ps4KernelSocketPrint(td, patch_another_sock, "[INFO] copyout %llx %llx %llx\n", off, map_addr, copy_len);
         error = copyout((caddr_t)sf_buf_kva(sf) + off,
             (caddr_t)map_addr, copy_len);
+
+        ps4KernelSocketPrint(td, patch_another_sock, "[INFO] copyout\n");
         vm_imgact_unmap_page(sf);
+
+        ps4KernelSocketPrint(td, patch_another_sock, "[INFO] vm_imgact_unmap_page\n");
         if (error) {
             return (error);
         }
     }
+
+    ps4KernelSocketPrint(td, patch_another_sock, "[INFO] protecting page\n");
 
     /*
      * set it to the specified protection.
@@ -332,6 +370,8 @@ __elfN(load_section)(struct vmspace *vmspace,
      */
     vm_map_protect(&vmspace->vm_map, trunc_page(map_addr),
         round_page(map_addr + map_len),  prot, FALSE);
+
+    ps4KernelSocketPrint(td, patch_another_sock, "[INFO] protecting page done\n");
 
     return (0);
 }
@@ -401,6 +441,8 @@ int __elfN(load_file)(struct proc *p, const char *file, u_long *addr,
     imgp->object = *(uint64_t*)((uint64_t)nd->ni_vp + v_object); //vp->v_object
 
     hdr = (const Elf_Ehdr *)imgp->image_header;
+
+    rbase = *addr;
 
     // if ((error = __elfN(check_header)(hdr)) != 0)
     //     goto fail;

@@ -94,7 +94,7 @@ int main(int argc, char **argv)
 
         envv[0] = NULL;
 
-        args[0] = "!_MAGIC_RUN_THIS_!/data/rsh";
+        args[0] = "!_MAGIC_RUN_THIS_!/data/eboot_plugin";
         args[1] = NULL;
 
 

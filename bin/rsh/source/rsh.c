@@ -180,8 +180,26 @@ int do_execve(int socket)
     r = readall(socket, filename + strlen(magic), filename_size);
     if (r != 0)
         return -1;
+
+    int argc = 0;
+    r = readall(socket, &argc, 4);
+    if (r != 0)
+        return -1;
     
-    char * args[] = {filename , 0};
+    char * args[256];
+    if (argc > 254)
+        argc = 254;
+    
+    args[0] = filename;
+    args[1 + argc] = 0;
+
+    for (int i = 1; i <= argc; i++)
+    {
+        int argsize = 0;
+        r = readall(socket, &argsize, 4);
+        args[i] = malloc(argsize);
+        r = readall(socket, args[i], argsize);
+    }
 
     char * envv[] = {0};
 

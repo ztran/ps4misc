@@ -134,11 +134,15 @@ void *elfLoaderServerElf(void *arg)
 		client = accept(a->descriptor, NULL, NULL);
 		if(client < 0)
 			continue;
+
+
 		elfCreateFromSocket(&elf, client);
 		close(client);
 		if(elf == NULL)
 			break;
 		a->elfRunner(elf);
+
+		
 	}
 	*a->run = 0;
 

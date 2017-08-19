@@ -327,8 +327,8 @@ int main(int argc, char **argv) {
         printf("\n");
 
 
-        //patch always mount /data
-        write_process_form_sys(pid, start[0]+0xe57e5, "\x90\x90\x90\x90\x90\x90", 6); //enable debug
+        //patch always mount /data /host and /hostapp
+        write_process_form_sys(pid, start[0]+0xe57e5, "\x90\x90\x90\x90\x90\x90", 6);
 
         //translated positions for the patches:
 
@@ -360,9 +360,11 @@ int main(int argc, char **argv) {
         printf("useless zone: %x payloadsize: %d datadest: %x\n", useless_zone, writesize, start[1]);
 
 //reset the loading flag
-        write_process_form_sys(pid, start[1], "\x40\x00\x00\x00", 4); //start of data section, used for loading flag
+        //write_process_form_sys(pid, start[1], "\x40\x00\x00\x00", 4); //start of data section, used for loading flag
         
-        write_process_form_sys(pid, useless_zone, writebuff, writesize); //useless zone(exceptions list), has some extra bytes
+        //write_process_form_sys(pid, useless_zone, writebuff, writesize); //useless zone(exceptions list), has some extra bytes
+        //write_process_form_sys(pid, p_tracefunc, (char*)&useless_zone, 8);
+        //write_process_form_sys(pid, traceflag, "\x01", 1); //enable debug
 
         //semiworking
         // write_process_form_sys(pid, sceRifManagerEntitlementStatOnHDD, (char*)&StatEntitlement, 30);
@@ -380,8 +382,6 @@ int main(int argc, char **argv) {
         //not working
         //write_process_form_sys(pid, processCheck_unk, (char*)&StatEntitlement, 30);
 
-        write_process_form_sys(pid, p_tracefunc, (char*)&useless_zone, 8);
-        write_process_form_sys(pid, traceflag, "\x01", 1); //enable debug
 
 
         readbuff = readdata_hex(pid, useless_zone, 0x60);

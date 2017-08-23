@@ -21,7 +21,7 @@ print("%s -> %s" % (localfile, remotepath))
 msg = open(localfile, "rb").read()
 
 #print("cat $ps4misc/bin/rcvfile/bin/rcvfile | nc %s 6053" % (sys.argv[-3],))
-os.system("cat $ps4misc/bin/rcvfile/bin/rcvfile | nc %s 6053" % (sys.argv[-3],))
+os.system("cat $ps4misc/bin/rcvfile/bin/rcvfile | nc %s 5053" % (sys.argv[-3],))
 
 time.sleep(0.2)
 

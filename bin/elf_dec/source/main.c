@@ -152,7 +152,7 @@ int sockconnect() {
     
     char * buffer = "NULL";
 
-    int port = 9000;
+    int port = 9001;
 
     struct sockaddr_in address;
 
@@ -161,7 +161,7 @@ int sockconnect() {
     memset(&address, 0, sizeof(address));
     address.sin_len = sizeof(address);
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = IP(192, 168, 2, 31);
+    address.sin_addr.s_addr = IP(192, 168, 2, 4);
     address.sin_port = htons(port);
 
     mysocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -386,10 +386,10 @@ int main(int argc, char **argv)
 
 	//decrypt_and_dump_self("/system/vsh/SceShellCore.elf", "/mnt/usb0/SceShellCore.elf");
 	//decrypt_and_dump_self("/mini-syscore.elf", "/mnt/usb0/mini-syscore.elf");
-    //decrypt_and_dump_self("/system/sys/SceSysCore.elf", "");
-    //decrypt_and_dump_self("/system/common/lib/libkernel.sprx", "");
+    decrypt_and_dump_self("/mnt/usb0/libSceWebKit2.sprx.elf", "");
+    decrypt_and_dump_self("/mnt/usb0/libkernel.sprx.elf", "");
 
-    decrypt_dir("/system/sys");
+    //decrypt_dir("/mnt/usb0");
 
     //decrypt_and_dump_self("/system/common/lib/libc.sprx", "");
 

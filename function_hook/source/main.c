@@ -27,9 +27,6 @@ Ps4KernelSocket *patch_another_sock;
 
 #include <imgact.h>
 
-void ps4RelocPayload();
-
-
 int probe() {
     struct thread *td;
     ps4KernelThreadGetCurrent(&td);
@@ -408,9 +405,6 @@ int main(int argc, char **argv)
 	uint64_t panic = solveprint_symbol(td, client, "panic");
 
 	ps4KernelProtectionWriteDisable();
-
-	// int size = (uint64_t)msearch(ps4RelocPayload, "PAYLOADENDSHERE", 15) - (uint64_t)ps4RelocPayload;
-	// ps4KernelSocketPrint(td, patch_another_sock, "patch size: %d\n", size);
 
 	//r = ps4KernelSocketPrintHexDump(td, client, justanother_imgact, 0x60);
 

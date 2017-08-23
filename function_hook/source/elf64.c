@@ -41,7 +41,7 @@
 
 ///home/user/projects/freebsd/sys/sys/namei.h
 //#include </home/user/projects/freebsd/sys/sys/bufobj.h>
-#include </home/user/projects/freebsd/sys/sys/namei.h>
+#include <sys/namei.h>
 //#include </home/user/projects/freebsd/sys/sys/vnode.h>
 
 #include <machine/elf.h>

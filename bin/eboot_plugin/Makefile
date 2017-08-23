@@ -10,7 +10,7 @@ $(error Neither PS4SDK, Ps4Sdk nor ps4sdk set)
 endif
 endif
 
-target ?= ps4_bin
+target ?= ps4_elf
 
 #need to add this flags
 #-Wl,-T script.ld

@@ -291,7 +291,9 @@ hihack_proc(struct image_params *imgp, char * filename, uint64_t * outprocentry)
     hdr = (const Elf64_Ehdr *)(nimgp.image_header);
     phdr = (const Elf64_Phdr *)((uint64_t)nimgp.image_header + hdr->e_phoff);
 
-    uint64_t rbase = 0;
+    
+    uint64_t rbase = * outprocentry;
+
     uint64_t base_addr = 0;
     uint64_t prot = 0;
     uint64_t pagesize = 0x4000;
@@ -317,13 +319,10 @@ hihack_proc(struct image_params *imgp, char * filename, uint64_t * outprocentry)
                 phdr[i].p_offset,
                 (caddr_t)(uintptr_t)phdr[i].p_vaddr + rbase,
                 phdr[i].p_memsz, phdr[i].p_filesz, prot);
+        if ((phdr[i].p_memsz == 0) & (phdr[i].p_filesz == 0))
+            continue;
 
         if ((phdr[i].p_memsz != 0) & (phdr[i].p_type == PT_LOAD)) {
-            if (phdr[i].p_vaddr == 0)
-            {
-                ps4KernelSocketPrint(td, patch_another_sock, "base was 0, relocating\n");
-                rbase += 0x40000;
-            }
 
             /* Loadable segment */
             prot = __elfN(trans_prot)(phdr[i].p_flags);
@@ -337,7 +336,8 @@ hihack_proc(struct image_params *imgp, char * filename, uint64_t * outprocentry)
             //     MAP_COPY_ON_WRITE | MAP_PREFAULT);
 
             if ((error = __elfN(load_section)(vmspace,
-                nimgp.object, phdr[i].p_offset,
+                nimgp.object, 
+                phdr[i].p_offset,
                 (caddr_t)(uintptr_t)phdr[i].p_vaddr + rbase,
                 phdr[i].p_memsz, phdr[i].p_filesz, prot,
                 pagesize)) != 0)
@@ -355,6 +355,11 @@ hihack_proc(struct image_params *imgp, char * filename, uint64_t * outprocentry)
             numsegs++;
         }
     }
+
+    //resolv relocs
+    //will need dina table
+    //sf = vm_imgact_map_page(object, offset);
+    error = 0;
     
 fail:
 

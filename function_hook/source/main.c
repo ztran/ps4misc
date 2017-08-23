@@ -89,7 +89,6 @@ void socketprintsection(struct thread *td, char * title, uint64_t pos, uint64_t 
 uint64_t hihack_proc(struct image_params *imgp, char * filename, uint64_t * outprocentry);
 
 void add_0x93a4FFFF8_gadget(struct thread *td, struct image_params *imgp, uint64_t kernel_start) {
-	//must be called after loading the binary into memory, so that vm_map_insert doesnt collide
     struct vmspace *vmspace;
     vm_map_t map;
 
@@ -97,7 +96,7 @@ void add_0x93a4FFFF8_gadget(struct thread *td, struct image_params *imgp, uint64
     map = &vmspace->vm_map;
 
     //insert hito gadget
-	uint64_t gadget = kernel_start + 0x45a - 0x1bd58;//1.76 specific, kernel syscall/ret gadget, - kernel.start
+    uint64_t gadget = kernel_start + (0x45a - 0x1bd58);//1.76 specific, kernel syscall/ret gadget, - kernel.start
 
     int error = vm_map_insert(map, NULL, 0,
         0x93a4fc000, 0x93a500000,
@@ -146,51 +145,36 @@ uint64_t hook_exec_set_regs(struct thread *td, struct image_params *imgp, uint64
 
         ps4KernelSocketPrint(td, patch_another_sock, "HIHACKING PROC\n");
 
-		uint64_t new_entry = 0;
+        uint64_t new_entry = 0;
 
-        hihack_proc(imgp, found_hihack_command, &new_entry);
+        int error = hihack_proc(imgp, found_hihack_command, &new_entry);
+        if (error == 0)
+        {
+            ps4KernelSocketPrint(td, patch_another_sock, "new program entrypoint: %llx\n", new_entry);
 
-        ps4KernelSocketPrint(td, patch_another_sock, "new program entrypoint: %llx\n", new_entry);
+            
+    		//ps4KernelSocketPrint(td, patch_another_sock, "setting regs\n", imgp->args->fname);
 
-        
-		//ps4KernelSocketPrint(td, patch_another_sock, "setting regs\n", imgp->args->fname);
+    	    bzero(dump, 0xc0*2);
+    	    copyin(stack_base, dump, 0xc0*2);
 
-	    bzero(dump, 0xc0*2);
-	    copyin(stack_base, dump, 0xc0*2);
-
-		socketprintsection(td, "stack_base dump:\n", stack_base, 0xc0);
+    		socketprintsection(td, "stack_base dump:\n", stack_base, 0xc0);
 
 
-		//gotta find where this is writen to get a better definition
-		uint64_t * p_program_entry = (uint64_t*)(dump + 0x70 + (imgp->args->argc * 8) + (imgp->args->envc * 8));
-		uint64_t program_entry = * p_program_entry;
+    		//gotta find where this is writen to get a better definition
+    		uint64_t * p_program_entry = (uint64_t*)(dump + 0x70 + (imgp->args->argc * 8) + (imgp->args->envc * 8));
+    		uint64_t program_entry = * p_program_entry;
 
-//overwrite the program entry
-		* p_program_entry = new_entry;
-	    copyout(dump, stack_base, 0xc0*2); 
+    //overwrite the program entry
+    		* p_program_entry = new_entry;
+    	    copyout(dump, stack_base, 0xc0*2); 
 
-		socketprintsection(td, "stack_base dump:\n", stack_base, 0xc0);
+    		socketprintsection(td, "stack_base dump:\n", stack_base, 0xc0);
 
-		socketprintsection(td, "program entry:\n", new_entry, 0x200);
+    		socketprintsection(td, "program entry:\n", new_entry, 0x200);
 
-	    struct vmspace *vmspace;
-	    vm_map_t map;
-
-	    vmspace = imgp->proc->p_vmspace;
-	    map = &vmspace->vm_map;
-
-	    //insert hito gadget
-		uint64_t gadget = kernel_start + (0x45a - 0x1bd58);//1.76 specific, kernel syscall/ret gadget, - kernel.start
-
-	    int error = vm_map_insert(map, NULL, 0,
-	        0x93a4fc000, 0x93a500000,
-	        VM_PROT_READ | VM_PROT_WRITE, VM_PROT_ALL, 0);
-
-		copyout(&gadget, 0x93a4FFFF8, 8); 
-
-		
-		socketprintsection(td, "hito gadget2:\n", 0x93a4FFFF8, 8);
-		socketprintsection(td, "gadget content:\n", gadget, 0x10);
+            add_0x93a4FFFF8_gadget(td, imgp, kernel_start);
+        }
 
 	}
 
@@ -198,10 +182,11 @@ uint64_t hook_exec_set_regs(struct thread *td, struct image_params *imgp, uint64
 	{
         ps4KernelSocketPrint(td, patch_another_sock, "HIHACKING PROC\n");
 
-		uint64_t new_entry = 0;
+        //where mmap(0...) would put it
+		uint64_t new_entry = new_entry = imgp->proc->p_vmspace->vm_daddr;
 
-        hihack_proc(imgp, "/data/eboot_plugin", &new_entry);
-        if (new_entry != 0)
+        int error = hihack_proc(imgp, "/data/eboot_plugin", &new_entry);
+        if (error == 0)
         {
 
 	        ps4KernelSocketPrint(td, patch_another_sock, "new program entrypoint: %llx\n", new_entry);
@@ -262,7 +247,7 @@ uint64_t hook_sys_mprotect(uint64_t rdi, uint64_t rsi)
     ps4KernelThreadGetCurrent(&td);
 
 	ps4KernelSocketPrint(td, patch_another_sock, "sys_mprotect v1 (%llx, %llx, %llx)\n", 
-		*(uint64_t*)(rsi + 16), *(uint64_t*)(rsi + 8), *(uint64_t*)(rsi + 0));
+		*(uint64_t*)(rsi + 0), *(uint64_t*)(rsi + 8), *(uint64_t*)(rsi + 16));
 
     uint64_t error = r_sys_mprotect(rdi, rsi);
 
@@ -412,13 +397,14 @@ int main(int argc, char **argv)
 	*(uint64_t*)(0xffffffff83263ed8) = hook_exec_set_regs;
 	*(uint64_t*)(0xffffffff83234bd8) = hook_sys_dynlib_load_prx;
 
-	// *(uint64_t*)(0xffffffff8322ea58) = hook_sys_mprotect;
-	// *(uint64_t*)(0xffffffff8322ea60) = 0;
+    //should be on stage2 only    
+//	*(uint64_t*)(0xffffffff8322ea58) = hook_sys_mprotect;
+//	*(uint64_t*)(0xffffffff8322ea60) = 0;
 
 
 	//need a customsyscall to write mem
     //syscall 71
-	*(uint64_t*)(0xffffffff8322e9f0) = 5;
+	*(uint64_t*)(0xffffffff8322e9f0) = 1;
 	*(uint64_t*)(0xffffffff8322e9f8) = custom_sycall_map_file;
 	*(uint64_t*)(0xffffffff8322e918) = 0x100000001;
 

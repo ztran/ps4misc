@@ -49,7 +49,8 @@ __asm__("syscall2: push %r11\n\
 void handle_client(int client_desc);
 
 int main(uint64_t stackbase) {
-    syscall2(71, 0x1337, "hi_there", 8, 1, 1);
+    syscall2(594, "hi_there");
+    syscall2(72, 0x1337);
 
     uint64_t cur_stack;
 
@@ -77,6 +78,8 @@ int main(uint64_t stackbase) {
     printf("\n");
 
     //call the main module with the rigth params :P
+
+    exit(0);
 
     return 0;
 }

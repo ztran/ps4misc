@@ -223,22 +223,59 @@ uint64_t hook_exec_set_regs(struct thread *td, struct image_params *imgp, uint64
 
 uint64_t (*r_sys_mprotect)(uint64_t rdi, uint64_t rsi);
 
+
+// ex kldstat
 // offset, fd, prot, 
-uint64_t custom_sycall_map_file(uint64_t rdi, uint64_t rsi)
+uint64_t custom_sycall_gate(uint64_t rdi, uint64_t rsi)
 {
     struct thread *td;
     ps4KernelThreadGetCurrent(&td);
 
-	ps4KernelSocketPrint(td, patch_another_sock, "custom_syscall (%llx, %llx, %llx, %llx, %llx)\n", 
-		*(uint64_t*)(rsi + 0), *(uint64_t*)(rsi + 8), *(uint64_t*)(rsi + 16), *(uint64_t*)(rsi + 24), *(uint64_t*)(rsi + 32));
+    uint64_t x1 = *(uint64_t*)(rsi + 8);
+    uint64_t x2 = *(uint64_t*)(rsi + 16);
+    uint64_t x3 = *(uint64_t*)(rsi + 24);
 
+    switch (*(uint64_t*)(rsi + 0))
+    {
+        case 0x0:
+            ps4KernelSocketPrint(td, patch_another_sock, "gate_syscall :: writemem (%llx, %llx, %llx)\n", x1, x2, x3);
+            //writemem(source, dest, size)
+            
+            struct malloc_type *mt = ps4KernelDlSym("M_TEMP");
+
+            //struct proc *p = pfind(args->pid);
+
+            void *buff = malloc(x3, mt, M_ZERO | M_WAITOK);
+            copyin(x1, buff, x3);
+            int ret = write_mem(td, td->td_proc, x2, buff, x3);
+            free(buff, mt);
+
+            break;
+        case 0x1:
+            //mprotect?
+            break;
+        case 0x2:
+            //log?
+            break;
+
+        default:
+            ps4KernelSocketPrint(td, patch_another_sock, "gate_syscall :: unknown (%llx, %llx, %llx, %llx, %llx, %llx)\n", 
+                *(uint64_t*)(rsi + 0), 
+                *(uint64_t*)(rsi + 8), 
+                *(uint64_t*)(rsi + 16), 
+                *(uint64_t*)(rsi + 24), 
+                *(uint64_t*)(rsi + 32), 
+                *(uint64_t*)(rsi + 40));
+
+            return 1;
+    }
     // error = vm_map_insert(map, object, 
     //     0, //file_offset
     //     0x400000, 0x400200, //virtual_offset, text_end,
     //     VM_PROT_READ | VM_PROT_EXECUTE, VM_PROT_ALL, 
     //     MAP_COPY_ON_WRITE | MAP_PREFAULT);
 
-	return 1;
+	return 0;
 }
 
 uint64_t hook_sys_mprotect(uint64_t rdi, uint64_t rsi)
@@ -398,15 +435,15 @@ int main(int argc, char **argv)
 	*(uint64_t*)(0xffffffff83234bd8) = hook_sys_dynlib_load_prx;
 
     //should be on stage2 only    
-//	*(uint64_t*)(0xffffffff8322ea58) = hook_sys_mprotect;
+	*(uint64_t*)(0xffffffff8322ea58) = hook_sys_mprotect;
 //	*(uint64_t*)(0xffffffff8322ea60) = 0;
 
 
 	//need a customsyscall to write mem
-    //syscall 71
-	*(uint64_t*)(0xffffffff8322e9f0) = 1;
-	*(uint64_t*)(0xffffffff8322e9f8) = custom_sycall_map_file;
-	*(uint64_t*)(0xffffffff8322e918) = 0x100000001;
+    //sys_kldstat (308)
+	*(uint64_t*)(0xffffffff83231630) = 6;
+	*(uint64_t*)(0xffffffff83231638) = custom_sycall_gate;
+	//*(uint64_t*)(0xffffffff8322e918) = 0x100000001;
 
 	//null getattr and access checks on exec_check_permissions
 	for (uint64_t i=0xffffffff82407147; i< 0xffffffff824071ce; i++) 

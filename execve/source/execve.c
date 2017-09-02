@@ -46,7 +46,7 @@ int mysocket;
 //59  AUE_EXECVE  STD { int execve(char *fname, char **argv, char **envv); }
 //74  AUE_MPROTECT    STD { int mprotect(void *addr, size_t len, int prot); }
 int syscall2(int rsi, ...);
-__asm__("syscall2: mov $0, %rax \n syscall\n ret");
+__asm__("syscall2: mov $0, %rax \n mov %rcx, %r10 \n  syscall\n ret");
 
 
 int main(int argc, char **argv)
@@ -54,7 +54,6 @@ int main(int argc, char **argv)
     char* args[10];
     char* envv[10];
     int64_t f, e;
-
 
     printf("hello1\n");
 
@@ -77,6 +76,22 @@ int main(int argc, char **argv)
     {
         sleep(1);
         printf("fork: %d\n", f);
+
+        char src[] = {0xc3};
+
+        uint64_t x = mmap(0, 0x10000,  PROT_READ |  PROT_EXEC,  MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+
+        syscall2(308, 0, src, x, 1); //writemem(src, dest, size)
+
+        void (*aproc)() = x;
+        aproc();
+
+        syscall2(308, 0x1338, 1); // just to log something after the call
+
+        // __asm__("mov $308, %rax \n mov $0x1337, %rdi \n\\
+        //     mov $0x2337, %rsi \n mov $0x3337, %rdx \n mov $0x4337, %r10 \n mov $0x5337, %r8 \n mov $0x6337, %r9 \n \\
+        //     syscall");
+
 
         //e = syscall2(4, 1, "/data/ls", 8); //R/W
 

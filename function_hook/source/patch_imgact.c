@@ -80,6 +80,7 @@ struct vattr {
 };
 
 
+//failed test
 int hihack_exec(struct image_params *imgp) {
     struct thread *td;
     ps4KernelThreadGetCurrent(&td);

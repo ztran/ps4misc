@@ -355,6 +355,10 @@ int main(int argc, char **argv) {
         write_process_form_sys(pid, traceflag, "\x01", 1); //enable debug
 
 
+        write_process_form_sys(pid,                                 //enable /data mounted on the vm
+            start[0] + 0xe57e5, "\x90\x90\x90\x90\x90\x90", 6);
+
+
         readbuff = readdata_hex(pid, useless_zone, 0x60);
         free(readbuff);
 
